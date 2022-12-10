@@ -92,50 +92,50 @@ void dmpDataReady() {
 // ================================================================
 // ===                      PID Controller                      ===
 // ================================================================
-class Queue{
-  private:
-    int static const max_size = 50;
-    int cur_size;
-    float queue[max_size];
-    bool isfull;
-  public:
-    Queue(){
-      this->isfull = false;
-      this->initialize();
-      this->cur_size = 0;
-    }
-
-    void enqueue(float value){
-      if (this->cur_size >= this->max_size - 1){
-        this->shift();
-        this->queue[max_size-1] = value;
-      }
-      else{
-        this->queue[this->cur_size] = value;
-      }
-      this->cur_size += 1;
-    }
-    
-    void shift(){
-      for (int i = 1; i < this->max_size; i++){
-        this->queue[i-1] = this->queue[i];
-      }
-    }
-
-    void initialize(){
-      for (int i = 0; i < this->max_size; i++){
-        this->queue[i] = -1.0;
-      }
-    }
-
-    float getSum(){
-      float sum = 0;
-      for (int i = 0; i <= this->cur_size; i++){
-        sum += this->queue[i];
-      }
-    }
-    
-};
+//class Queue{
+//  private:
+//    int static const max_size = 50;
+//    int cur_size;
+//    float queue[max_size];
+//    bool isfull;
+//  public:
+//    Queue(){
+//      this->isfull = false;
+//      this->initialize();
+//      this->cur_size = 0;
+//    }
+//
+//    void enqueue(float value){
+//      if (this->cur_size >= this->max_size - 1){
+//        this->shift();
+//        this->queue[max_size-1] = value;
+//      }
+//      else{
+//        this->queue[this->cur_size] = value;
+//      }
+//      this->cur_size += 1;
+//    }
+//    
+//    void shift(){
+//      for (int i = 1; i < this->max_size; i++){
+//        this->queue[i-1] = this->queue[i];
+//      }
+//    }
+//
+//    void initialize(){
+//      for (int i = 0; i < this->max_size; i++){
+//        this->queue[i] = -1.0;
+//      }
+//    }
+//
+//    float getSum(){
+//      float sum = 0;
+//      for (int i = 0; i <= this->cur_size; i++){
+//        sum += this->queue[i];
+//      }
+//    }
+//    
+//};
 enum system_state {
     POS_HOLD,
     POS_FREE
@@ -148,8 +148,8 @@ class PID_Controller{
     system_state state;
     float x_i_err;
     float theta_i_err;
-    Queue q_x;
-    Queue q_theta;
+    //Queue q_x;
+    //Queue q_theta;
   public:
     PID_Controller(){
       this->prev_x_err = 0;
@@ -170,9 +170,9 @@ class PID_Controller{
 //      int Kcd = 1;
 //      int Kci = 0;
 
-      int Kpp = 70;
-      int Kpd = 6;
-      int Kpi = 2;
+      int Kpp = 45;
+      int Kpd = 7;
+      int Kpi = 0;
 
       float rps = 0;
       float cur_time = millis();
@@ -181,7 +181,7 @@ class PID_Controller{
       
       //POS_HOlD wants to stay at the x goal
       if (this->state == POS_HOLD){ //pos is current x-pos, goal is desired x-pos
-        q_x.enqueue(c_err);
+        //q_x.enqueue(c_err);
         float theta_goal = 0;//Kcp * c_err + Kcd * this->get_d_err(c_err, this->prev_x_err, cur_time) + Kci * q_x.getSum(); //replace c_err for needed error functions
         theta_err = theta_goal - theta;
       }
@@ -189,8 +189,11 @@ class PID_Controller{
         theta_err = goal - theta;
         //Serial.print(theta); Serial.print(" : "); Serial.println(theta_err);
       }
-      q_theta.enqueue(theta_err);
-      rps = Kpp * theta_err + Kpd * this->get_d_err(theta_err, this->prev_theta_err, cur_time) + Kpi * q_theta.getSum();
+      //q_theta.enqueue(theta_err);
+      this->theta_i_err += theta_err;
+      rps = Kpp * theta_err + Kpd * this->get_d_err(theta_err, this->prev_theta_err, cur_time) + Kpi * this->theta_i_err;
+
+      //Serial.println(this->theta_i_err);
 
       this->prev_x_err = c_err;
       this->prev_theta_err = theta_err;
@@ -298,19 +301,19 @@ void setup() {
 // ================================================================
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
-float const DEGREES_PER_STEP = 0.2;
-int const STEPS_PER_REVOLUTION = 1800;
-int const CIRCUMFERENCE_OF_WHEELS = 314; //millimeters
+//float const DEGREES_PER_STEP = 0.2;
+//int const STEPS_PER_REVOLUTION = 1800;
+//int const CIRCUMFERENCE_OF_WHEELS = 314; //millimeters
 float const DISTANCE_PER_STEP = 0.174; //millimeters
 
-float accel = 1;
-float cur_rps = 0;
-int mot_dir = 1; // 1 = forwards, -1 = backwards. Only used for pos estimation
-float cur_pos = 0;
-float speed_delay = 0;
-float action = 0;
+    float cur_rps = 0;
+    int mot_dir = 1; // 1 = forwards, -1 = backwards. Only used for pos estimation
+    float cur_pos = 0;
+    float speed_delay = 0;
+    float action = 0;
 
 void loop() {
+
     // if programming failed, don't try to do anything  
     if (!dmpReady) {
       
@@ -330,7 +333,7 @@ void loop() {
 //      else{
 //        cur_rps = pid.get_action(ypr[2], cur_pos, 0); // 0 here is for theta goal
 //      }
-      cur_rps = pid.get_action(ypr[2], cur_pos, 0);
+      cur_rps = pid.get_action(ypr[2] * 7, cur_pos, 0);
       if (cur_rps < 0){ //negative = backwards
         digitalWrite(ml_dir_pin, HIGH);
         digitalWrite(mr_dir_pin, LOW);
@@ -342,15 +345,13 @@ void loop() {
         digitalWrite(mr_dir_pin, HIGH);
         mot_dir = 1;
       }
-      Serial.print(cur_rps);
-      Serial.print(" : ");
-      cur_rps *= cur_rps * cur_rps;
-      if (cur_rps > 3950){
-        cur_rps = 3950;
+      cur_rps = pow(cur_rps, 3);
+      if (cur_rps > 5950){
+        cur_rps = 5950;
       }
       Serial.print(cur_rps);
       Serial.print(" : ");
-      cur_rps = 4000 - cur_rps;
+      cur_rps = 6000 - cur_rps;
       Serial.println(cur_rps);
 
     }
